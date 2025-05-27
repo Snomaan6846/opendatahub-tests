@@ -1,0 +1,23 @@
+{
+  "id": "0a81e4fd-2487-4b7f-a289-e1ead6a6f8fa",
+  "model_name": "sklearn-iris",
+  "model_version": "v1.0.0",
+  "outputs": [
+    {
+      "data": [
+        1,
+        1
+      ],
+      "datatype": "INT64",
+      "name": "predict",
+      "parameters": {
+        "content_type": "np"
+      },
+      "shape": [
+        2,
+        1
+      ]
+    }
+  ],
+  "parameters": {}
+}
