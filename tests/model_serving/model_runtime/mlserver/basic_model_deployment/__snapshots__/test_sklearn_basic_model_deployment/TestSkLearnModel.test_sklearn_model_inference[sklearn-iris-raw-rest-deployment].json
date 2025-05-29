@@ -1,5 +1,5 @@
 {
-  "id": "0a81e4fd-2487-4b7f-a289-e1ead6a6f8fa",
+  "id": "sklearn-iris",
   "model_name": "sklearn-iris",
   "model_version": "v1.0.0",
   "outputs": [

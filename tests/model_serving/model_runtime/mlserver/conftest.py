@@ -7,10 +7,7 @@ from ocp_resources.pod import Pod
 from ocp_resources.secret import Secret
 from ocp_resources.template import Template
 from ocp_resources.service_account import ServiceAccount
-from tests.model_serving.model_runtime.mlserver.utils import (
-    kserve_s3_endpoint_secret,
-    skip_if_deployment_mode,
-)
+from tests.model_serving.model_runtime.mlserver.utils import kserve_s3_endpoint_secret
 import pytest
 from pytest import FixtureRequest
 from syrupy.extensions.json import JSONSnapshotExtension
@@ -26,6 +23,9 @@ from pytest_testconfig import config as py_config
 
 LOGGER = get_logger(name=__name__)
 
+@pytest.fixture(scope="session")
+def root_dir(pytestconfig: pytest.Config) -> Any:
+    return pytestconfig.rootpath
 
 @pytest.fixture(scope="class")
 def mlserver_grpc_serving_runtime_template(admin_client: DynamicClient) -> Template:
@@ -50,17 +50,21 @@ def mlserver_rest_serving_runtime_template(admin_client: DynamicClient) -> Templ
 
 
 @pytest.fixture(scope="class")
+def protocol(request: FixtureRequest) -> str:
+    return request.param["protocol_type"]
+
+@pytest.fixture(scope="class")
 def serving_runtime(
     request: FixtureRequest,
     admin_client: DynamicClient,
     model_namespace: Namespace,
     mlserver_runtime_image: str,
+    protocol: str,
 ) -> Generator[ServingRuntime, None, None]:
-    protocol = request.param["protocol"].lower()
     template_name = TEMPLATE_MAP.get(protocol, RuntimeTemplates.MLSERVER_REST)
     with ServingRuntimeFromTemplate(
         client=admin_client,
-        name="mlserver-runtime",
+        name="mlserver-rest-runtime" if protocol == Protocols.REST else "mlserver-grpc-runtime",
         namespace=model_namespace.name,
         template_name=template_name,
         deployment_type=request.param["deployment_type"],
@@ -86,7 +90,8 @@ def mlserver_inference_service(
         "storage_uri": s3_models_storage_uri,
         "model_format": serving_runtime.instance.spec.supportedModelFormats[0].name,
         "model_service_account": model_service_account.name,
-        "deployment_mode": request.param.get("deployment_mode", KServeDeploymentType.RAW_DEPLOYMENT),
+        "deployment_mode": request.param.get("deployment_type", KServeDeploymentType.RAW_DEPLOYMENT),
+        "external_route": request.param.get("enable_external_route", False),
     }
     gpu_count = request.param.get("gpu_count", 0)
     timeout = request.param.get("timeout")
@@ -148,21 +153,3 @@ def response_snapshot(snapshot: Any) -> Any:
 @pytest.fixture
 def mlserver_pod_resource(admin_client: DynamicClient, mlserver_inference_service: InferenceService) -> Pod:
     return get_pods_by_isvc_label(client=admin_client, isvc=mlserver_inference_service)[0]
-
-
-@pytest.fixture
-def skip_if_serverless_deployemnt(mlserver_inference_service: InferenceService) -> None:
-    skip_if_deployment_mode(
-        isvc=mlserver_inference_service,
-        deployment_type=KServeDeploymentType.SERVERLESS,
-        deployment_message="Test is being skipped because model is being deployed in serverless mode",
-    )
-
-
-@pytest.fixture
-def skip_if_raw_deployemnt(mlserver_inference_service: InferenceService) -> None:
-    skip_if_deployment_mode(
-        isvc=mlserver_inference_service,
-        deployment_type=KServeDeploymentType.RAW_DEPLOYMENT,
-        deployment_message="Test is being skipped because model is being deployed in raw mode",
-    )
